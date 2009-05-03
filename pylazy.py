@@ -103,8 +103,12 @@ def test():
 
     print d.__repr__()
     print d
-
     repr = d.__repr__
     print repr()
+
+    print type(d)
+    print d.__class__
+
+    print "d isinstanc of dict = %s" % isinstance(d, dict)
 
 
