@@ -152,7 +152,16 @@ class Pool(object):
             while 1:
                 num_q, ok_list, err_list = self.m.info_read()
                 for c in ok_list:
-                    complete[c.urlfetch] = c.buf.getvalue()
+                    # swap in a new memory file to write to, record
+                    # the old buffer which will be returned.
+                    new_buf = StringIO()
+                    c.setopt(pycurl.WRITEFUNCTION, new_buf.write)
+                    old_buf = c.buf
+                    c.buf = new_buf
+
+                    # reset the complete buffer's position
+                    old_buf.seek(0)
+                    complete[c.urlfetch] = old_buf
 
                     clear_curlobj(c)
                     self.m.remove_handle(c)
