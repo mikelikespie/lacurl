@@ -1,26 +1,3 @@
-from abc import ABCMeta
-from types import FunctionType
-
-def getlist():
-    print "Getting List"
-    return [1,2,3,4,5]
-
-def getdict():
-    print "Getting dict"
-    return {1:2,3:4}
-
-def getint():
-    print "Getting int"
-    return 52
-
-def getstr():
-    print "Getting str"
-    return "HELLO"
-
-def getfloat():
-    print "Getting float"
-    return 52.2
-
 def makelazy(callback, *_possible_classes):
     functions = set()
     properties = set()
@@ -67,12 +44,30 @@ def makelazy(callback, *_possible_classes):
     for f in functions:
         object.__setattr__(new_lazy, f, makehook(f))
 
-
-
     return new_lazy
 
 
 def test():
+    def getlist():
+        print "Getting List"
+        return [1,2,3,4,5]
+
+    def getdict():
+        print "Getting dict"
+        return {1:2,3:4}
+
+    def getint():
+        print "Getting int"
+        return 52
+
+    def getstr():
+        print "Getting str"
+        return "HELLO"
+
+    def getfloat():
+        print "Getting float"
+        return 52.2
+
     print "Making lazies"
     lazies = [
      makelazy(getlist, list, dict, str, float, int),
