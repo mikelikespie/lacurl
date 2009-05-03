@@ -55,12 +55,7 @@ def makelazy(callback, *_possible_classes):
                 return object.__getattribute__(self, attr) 
             
 
-            at = self._val.__getattribute__(attr)
-            if callable(at):
-                print "Caller?"
-                return at
-            else:
-                return at
+            return self._val.__getattribute__(attr)
                 
     new_lazy = inner_lazy(callback)
 
