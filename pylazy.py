@@ -27,7 +27,9 @@ def makelazy(*_possible_classes):
 
         def __getattribute__(self, attr):
             if attr in ('__getattribute__', '__slots__', '_lazy__callback') or \
-                    (attr != '_lazy__val' and attr not in self.__slots__):
+                    (attr not in ('_lazy__val', '__class__', '__dict__', '__base__', '__bases__', #This is really dirty.
+                        '__new__')
+                            and attr not in self.__slots__):
                 return object.__getattribute__(self, attr)
 
             if attr == '_lazy__val':
