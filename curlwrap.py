@@ -194,3 +194,19 @@ class Pool(object):
                 c.buf = None
             c.close()
         self.m.close()
+
+def test():
+    # perform one hundred requests to localhost with concurrency 10
+    p = Pool(100)
+    fetches = []
+    for i in xrange(100):
+        uf = URLFetch('http://localhost')
+        uf.i = i
+        fetches.append(uf)
+
+    # trying to make any resource leaks more visible.
+    for i in xrange(10000):
+        p.perform(*fetches)
+
+if __name__ == '__main__':
+    test()
