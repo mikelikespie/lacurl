@@ -12,7 +12,7 @@ def makelazy(callback, *_possible_classes):
     functions.remove('__new__')
 
     functions.add('__callback')
-    functions.add('_val')
+    properties.add('__val')
 
     class inner_lazy(object):
         __meta__ = tuple(_possible_classes)
@@ -20,26 +20,26 @@ def makelazy(callback, *_possible_classes):
 
         def __init__(self, callback):
             self.__callback = callback
-            self._val = None
+            self.__val = None
 
         def __getattribute__(self, attr):
-            if attr in ('__getattribute__', '__slots__', '_inner_lazy__callback') or attr not in self.__slots__:
+            if attr in ('__getattribute__', '__slots__', '_inner_lazy__callback') or (attr != '_inner_lazy__val' and attr not in self.__slots__):
                 return object.__getattribute__(self, attr)
 
-            if attr == '_val':
+            if attr == '_inner_lazy__val':
                 if object.__getattribute__(self, attr) is None:
                     object.__setattr__(self, attr, self.__callback())
                 return object.__getattribute__(self, attr) 
             
 
-            return self._val.__getattribute__(attr)
+            return self.__val.__getattribute__(attr)
                 
     new_lazy = inner_lazy(callback)
 
-    functions -= set(('__callback', '__init__', '_val', '__getattribute__'))
+    functions -= set(('__callback', '__init__','__getattribute__'))
     
     def makehook(f):
-        return lambda *s, **d: new_lazy._val.__getattribute__(f)(*s, **d)
+        return lambda *s, **d: new_lazy._inner_lazy__val.__getattribute__(f)(*s, **d)
 
     for f in functions:
         object.__setattr__(new_lazy, f, makehook(f))
