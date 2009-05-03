@@ -29,9 +29,12 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import pycurl
+import threading
+import lazystream
 from cStringIO import StringIO
 from collections import deque
 
+debug = False
 class POST:
     pass
 
@@ -47,8 +50,11 @@ try:
 except ImportError:
     pass
 
+def nullwriter(stuff):
+    pass
+
 class URLFetch(object):
-    def __init__(self, url, method=GET, payload=None):
+    def __init__(self, url, producer, method=GET, payload=None):
         """
         Enough information to fetch a given URL using the Pool object
 
@@ -58,6 +64,7 @@ class URLFetch(object):
         self.url = url
         self.method = method
         self.payload = payload
+        self.producer = producer
 
         # Prevent a careless 'None' payload
         if method not in [GET, POST]:
@@ -69,7 +76,7 @@ class URLFetch(object):
                 TypeError('POST method specified without payload')
 
 
-class Pool(object):
+class Pool(threading.Thread):
     def __init__(self, concurrency_level, poll_interval=1.0):
         """
         Initializes a multi-curl pool for requests
@@ -78,13 +85,17 @@ class Pool(object):
         The poll_interval determines the timeout of the select() call
 
         """
+        threading.Thread.__init__(self)
         self.poll_interval = poll_interval
         self.m = m = pycurl.CurlMulti()
+        self.queue = []
+        self.cond = threading.Condition()
+        self.total_handles = concurrency_level
+        self.finished = False
         m.handles = []
         # build the pool of curl objects
         for i in xrange(concurrency_level):
             c = pycurl.Curl()
-            c.buf = None
             c.urlfetch = None
             c.setopt(pycurl.FOLLOWLOCATION, 1)
             c.setopt(pycurl.MAXREDIRS, 5)
@@ -93,7 +104,26 @@ class Pool(object):
             c.setopt(pycurl.NOSIGNAL, 1)
             m.handles.append(c)
 
-    def perform(self, *urls):
+    def urlopen(self, url, data = None):
+        l = lazystream.LazyStream()
+        method = GET
+        if data:
+            method = POST
+        f = URLFetch(url, l.make_producer(), method, data)
+        
+        with self.cond:
+            self.queue.insert(0,f)
+            self.cond.notify()
+
+        return l.make_consumer()
+    
+
+    def finish(self):
+        with self.cond:
+            self.finished = True
+            self.cond.notify()
+        self.join()
+    def run(self):
         """
         Given one or more URLFetch objects enqueue them all and serve
         them as quickly as possible.
@@ -105,108 +135,126 @@ class Pool(object):
 
         def clear_curlobj(c):
             # clear fields on c to make things easier to debug
-            c.buf.close()
-            c.buf = None
             c.urlfetch = None
 
-        num_processed = 0
         freelist = self.m.handles[:]
-        complete = {}
 
-        queue = list(urls)
-        while num_processed < len(urls):
+        while not self.finished:
 
             # This loop is run when there is work to be done and extra
             # capacity to do it with.  Pop a curl object and a
-            # urlfetch object off their respective queues and set them
+            # urlfetch object off their respective self.queues and set them
             # up to get to work.
-            while queue and freelist:
-                urlfetch = queue.pop()
-                c = freelist.pop()
+            with self.cond:
+                while not self.queue and len(freelist) == self.total_handles:
+                    self.cond.wait()
+                if self.finished:
+                    break
+                #print("Adding stuff in self.queue to junk")
+                while self.queue and freelist:
+                    urlfetch = self.queue.pop()
+                    #print("adding %s to working" % urlfetch.url)
 
-                c.setopt(pycurl.URL, urlfetch.url)
-                buf = StringIO()
+                    c = freelist.pop()
 
-                c.setopt(pycurl.WRITEFUNCTION, buf.write)
-                self.m.add_handle(c)
+                    c.setopt(pycurl.URL, urlfetch.url)
 
-                if urlfetch.method is POST:
-                    c.setopt(pycurl.POSTFIELDS, urlfetch.payload)
-                elif urlfetch.method is GET:
-                    c.setopt(pycurl.HTTPGET, 1)
-                else:
-                    raise TypeError('only the GET and POST objects from '
-                                    'module {0} are allowed', self.__module__)
+                    c.setopt(pycurl.WRITEFUNCTION, urlfetch.producer.write)
+                    self.m.add_handle(c)
 
-                c.urlfetch = urlfetch
-                c.buf = buf
+                    if urlfetch.method is POST:
+                        c.setopt(pycurl.POSTFIELDS, urlfetch.payload)
+                    elif urlfetch.method is GET:
+                        c.setopt(pycurl.HTTPGET, 1)
+                    else:
+                        raise TypeError('only the GET and POST objects from '
+                                        'module {0} are allowed', self.__module__)
 
+                    c.urlfetch = urlfetch
+
+
+            #print("Performing")
             # Run the internal curl state machine for the multi stack.
             while 1:
                 ret, num_handles = self.m.perform()
                 if ret != pycurl.E_CALL_MULTI_PERFORM:
                     break
 
+            #print("fetching statuses")
             # Check for curl objects which have terminated, and add
             # them to the freelist after recording the results
             while 1:
+
                 num_q, ok_list, err_list = self.m.info_read()
                 for c in ok_list:
-                    # swap in a new memory file to write to, record
-                    # the old buffer which will be returned.
-                    new_buf = StringIO()
-                    c.setopt(pycurl.WRITEFUNCTION, new_buf.write)
-                    old_buf = c.buf
-                    c.buf = new_buf
+                    with self.cond:
+                        c.setopt(pycurl.WRITEFUNCTION, nullwriter)
+                        c.urlfetch.producer.close()
 
-                    # reset the complete buffer's position
-                    old_buf.seek(0)
-                    complete[c.urlfetch] = old_buf
-
-                    clear_curlobj(c)
-                    self.m.remove_handle(c)
-                    freelist.append(c)
+                        c.urlfetch = None
+                        self.m.remove_handle(c)
+                        freelist.append(c)
 
                 for c, errno, errmsg in err_list:
-                    e = IOError(errno, errmsg)
-                    e.urlfetch = c.urlfetch
-                    complete[c.urlfetch] = e
+                    with self.cond:
+                        e = IOError(errno, errmsg)
+                        e.urlfetch = c.urlfetch
 
-                    clear_curlobj(c)
-                    self.m.remove_handle(c)
-                    freelist.append(c)
+                        c.setopt(pycurl.WRITEFUNCTION, nullwriter)
+                        c.urlfetch.producer.close()
+                        #TODO: Add error handling
 
-                num_processed += len(ok_list) + len(err_list)
+                        c.urlfetch = None
+
+                        self.m.remove_handle(c)
+                        freelist.append(c)
+
+
                 if num_q == 0:
                     break
+
+            #print("Selecting")
             # Currently no more I/O is pending, could do something in the meantime
             # (display a progress bar, etc.).
             # We just call select() to sleep until some more data is available.
             self.m.select(self.poll_interval)
 
-        return complete
+        #cleanup
+        with self.cond:
+            for h in self.m.handles:
+                if h.urlfetch:
+                    h.urlfetch.producer.close()
+                    h.urlfetch = None
+            for f in self.queue:
+                f.producer.close()
+            del self.queue[:]
+                
 
     def __del__(self):
         # Cleanup
-        for c in self.m.handles:
-            if c.buf is not None:
-                c.buf.close()
-                c.buf = None
-            c.close()
+        with self.cond:
+            for h in self.m.handles:
+                if h.urlfetch:
+                    h.urlfetch.producer.close()
+                    h.urlfetch = None
+            for f in self.queue:
+                f.producer.close()
+            del self.queue[:]
         self.m.close()
 
 def test():
     # perform one hundred requests to localhost with concurrency 10
-    p = Pool(100)
-    fetches = []
-    for i in xrange(100):
-        uf = URLFetch('http://localhost')
-        uf.i = i
-        fetches.append(uf)
+    p = Pool(500)
 
-    # trying to make any resource leaks more visible.
-    for i in xrange(10000):
-        p.perform(*fetches)
+    p.start()
+    us = [p.urlopen('http://google.com') for i in xrange(80)]
+
+
+    for f in us:
+        print f.readline() #print just one line)
+
+    p.finish()
+
 
 if __name__ == '__main__':
     test()

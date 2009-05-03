@@ -86,6 +86,12 @@ class LazyStream(object):
                 raise StopIteration
             return line
 
+        def __str__(self):
+            with self._cond:
+                pos = self._csio.tell()
+                r = self.read()
+                self._csio.seek(pos)
+                return r
 
         def __iter__(self):
             return self
