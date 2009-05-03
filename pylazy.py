@@ -1,4 +1,4 @@
-def makelazy(callback, *_possible_classes):
+def makelazy(*_possible_classes):
     functions = set()
     properties = set()
     
@@ -9,42 +9,43 @@ def makelazy(callback, *_possible_classes):
     for c in _possible_classes:
         properties.update(set([k for k,v in c.__dict__.iteritems() if not callable(v)]))
 
-    functions.remove('__new__')
+    if '__new__' in functions:
+        functions.remove('__new__')
 
     functions.add('__callback')
     properties.add('__val')
 
-    class inner_lazy(object):
+    class lazy(object):
+        class InvalidValue: pass #We need this so we can support none even
+
         __meta__ = tuple(_possible_classes)
         __slots__ = tuple(functions.union(properties))
 
         def __init__(self, callback):
             self.__callback = callback
-            self.__val = None
+            self.__val = lazy.InvalidValue
 
         def __getattribute__(self, attr):
-            if attr in ('__getattribute__', '__slots__', '_inner_lazy__callback') or (attr != '_inner_lazy__val' and attr not in self.__slots__):
+            if attr in ('__getattribute__', '__slots__', '_lazy__callback') or \
+                    (attr != '_lazy__val' and attr not in self.__slots__):
                 return object.__getattribute__(self, attr)
 
-            if attr == '_inner_lazy__val':
-                if object.__getattribute__(self, attr) is None:
+            if attr == '_lazy__val':
+                if object.__getattribute__(self, attr) is lazy.InvalidValue:
                     object.__setattr__(self, attr, self.__callback())
                 return object.__getattribute__(self, attr) 
             
 
             return self.__val.__getattribute__(attr)
-                
-    new_lazy = inner_lazy(callback)
 
-    functions -= set(('__callback', '__init__','__getattribute__'))
-    
     def makehook(f):
-        return lambda *s, **d: new_lazy._inner_lazy__val.__getattribute__(f)(*s, **d)
+        return lambda self, *s, **d: self._lazy__val.__getattribute__(f)(*s, **d)
 
-    for f in functions:
-        object.__setattr__(new_lazy, f, makehook(f))
+    for f in functions - set(('__callback', '__init__','__getattribute__')):
+       setattr(lazy, f, makehook(f))
 
-    return new_lazy
+    
+    return lazy
 
 
 def test():
@@ -68,19 +69,35 @@ def test():
         print "Getting float"
         return 52.2
 
+    def gettrue():
+        print "getting false"
+        return True
+
+    def getfalse():
+        print "getting false"
+        return False
+
+    def getnone():
+        print "getting None"
+        return None
+
     print "Making lazies"
+    Lazy = makelazy(list, dict, str, float, int, type(None), bool)
     lazies = [
-     makelazy(getlist, list, dict, str, float, int),
-     makelazy(getstr, list, dict, str, float, int),
-     makelazy(getdict, list, dict, str, float, int),
-     makelazy(getint, list, dict, str, float, int),
-     makelazy(getfloat, list, dict, str, float, int)]
+     Lazy(getlist),
+     Lazy(getstr),
+     Lazy(getdict),
+     Lazy(getint),
+     Lazy(getnone),
+     Lazy(gettrue),
+     Lazy(getfalse),
+     Lazy(getfloat)]
     print "Lazies made"
 
     for l in lazies:
         print l
 
-    d = makelazy(getdict, list, dict, str, float, int)
+    d = Lazy(getdict)
 
     print d.__repr__()
     print d
