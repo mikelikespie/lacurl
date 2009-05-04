@@ -13,7 +13,7 @@ import lacurl.ext.ajason
 import urllib2
 try:
     import simplejson
-except ImportError
+except ImportError:
     import json
 
 import time
