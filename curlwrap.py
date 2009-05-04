@@ -255,15 +255,13 @@ def test():
     # perform one hundred requests to localhost with concurrency 10
     p = Pool(500)
 
-    p.start()
-    us = [p.urlopen('http://google.com') for i in xrange(80)]
+    with p:
+        us = [p.urlopen('http://google.com') for i in xrange(80)]
 
 
-    for f in us:
-        print f.readline() #print just one line)
-        f.close()
-
-    p.finish()
+        for f in us:
+            print f.readline() #print just one line)
+            f.close()
 
 
 if __name__ == '__main__':
