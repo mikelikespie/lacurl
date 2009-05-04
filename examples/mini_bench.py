@@ -12,7 +12,7 @@ import lacurl.ext.ajason
 
 import urllib2
 try:
-    import simplejson
+    import simplejson as json
 except ImportError:
     import json
 
