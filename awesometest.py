@@ -3,13 +3,13 @@ Run this and pass a username as the first arg, and it will return time timeline 
 
 This will make a lot of output, so please pipe it to a file
 """
+from __future__ import with_statement
 
 
 import curlwrap
 import pylazy
 import sys
 
-from __future__ import with_statement
 
 user = sys.argv[1]
 

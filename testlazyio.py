@@ -25,13 +25,13 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+from __future__ import with_statement
 
 from lazystream import LazyStream
 import json
 import threading
 import time
 
-from __future__ import with_statement
 
 def run(producer):
     print "sleeping for 3 seconds"

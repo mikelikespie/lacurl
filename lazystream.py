@@ -25,12 +25,12 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+from __future__ import with_statement
 
 import cStringIO
 import os
 import threading
 
-from __future__ import with_statement
 
 class LazyStream(object):
     __slots__ = ( 'consumers', 'producers', 'make_consumer', 'make_producer',
