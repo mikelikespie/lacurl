@@ -8,25 +8,59 @@ from __future__ import with_statement
 import sys
 
 import lacurl
-from lacurl.ext.ajason import load
+import lacurl.ext.ajason
+
+import urllib2
+import json
+
+import time
 
 
-user = sys.argv[1]
+class timer(object):
+    def __init__(self, name, stream = sys.stdout):
+        self.name = name
+        self.start = None
+        self.stream = stream
+
+    def __enter__(self):
+        self.start = time.time()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        end = time.time()
+
+        print >>self.stream, "%s took %s seconds" % (self.name, end - self.start)
 
 
-p = lacurl.Pool(50)
-
-with p:
-    f = p.urlopen('http://twitter.com/friends/ids/%s.json' % user)
-    u = load(f)
-
-    #let's get your first 50 friends' timelines
-    first = u[:50]
-
-    fs = [load(p.urlopen('http://twitter.com/statuses/user_timeline.json?user_id=%s' % id)) for id in first] 
+def main():
+    user = sys.argv[1]
 
 
-    for status in fs:
-        print fs
 
-    print 'finishing'
+    def getlist(opener, loader, user):
+        return (loader(opener('http://twitter.com/friends/ids/%s.json' % user)),
+                loader(opener('http://twitter.com/followers/ids/%s.json' % user)))
+
+    friends, followers = getlist(urllib2.urlopen, json.load, user)
+    to_get = set(friends[:10] + followers[:10])
+
+    print "getting %s urls" % len(to_get)
+
+    with timer("using LAcURL asynchronously"):
+        p = lacurl.Pool(100)
+        with p:
+            l = [getlist(p.urlopen, lacurl.ext.ajason.load, u) for u in to_get]
+
+            #let's copy them to new lists
+            total_fetched = sum(len(a) + len(b) for a,b in l)
+            print "%d fetched" % total_fetched
+
+    with timer("using urllib2.urlopen serially"):
+        l = [getlist(urllib2.urlopen, json.load, u) for u in to_get]
+
+        #let's copy them to new lists
+        total_fetched = sum(len(a) + len(b) for a,b in l)
+        print "%d fetched" % total_fetched
+
+
+if __name__ == "__main__":
+    main()
