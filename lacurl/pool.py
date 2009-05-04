@@ -42,11 +42,14 @@ class GET:
 
 # We should ignore SIGPIPE when using pycurl.NOSIGNAL - see
 # the libcurl tutorial for more info.
+
 try:
     import signal
     from signal import SIGPIPE, SIG_IGN
     signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 except ImportError:
+    pass
+except ValueError:
     pass
 
 def nullwriter(stuff):
