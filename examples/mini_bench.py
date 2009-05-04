@@ -11,7 +11,10 @@ import lacurl.pool
 import lacurl.ext.ajason
 
 import urllib2
-import json
+try:
+    import simplejson
+except ImportError
+    import json
 
 import time
 
