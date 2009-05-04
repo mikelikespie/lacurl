@@ -36,6 +36,6 @@ setup(
         license="BSD License",
         packages=find_packages(exclude=['ez_setup']),
         platforms=['any'],
-        install_requires = ['pycurl>=7.19.0'],
+        install_requires = ['pycurl>=7.18.0'],
         )
 
