@@ -26,9 +26,13 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from __future__ import with_statement
+def lazy(*_possible_classes):
+    """
+    This function generates a lazy evaluator class
 
-def makelazy(*_possible_classes):
+    pass it a list of possible return values for the callback
+    """
+
     functions = set()
     properties = set()
     
@@ -114,7 +118,7 @@ def test():
         return None
 
     print "Making lazies"
-    Lazy = makelazy(list, dict, str, float, int, type(None), bool)
+    Lazy = lazy(list, dict, str, float, int, type(None), bool)
     lazies = [
      Lazy(getlist),
      Lazy(getstr),
