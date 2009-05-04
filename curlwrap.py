@@ -75,7 +75,7 @@ class URLFetch(object):
             errormsg = errormsg.format(self.__module__)
             raise TypeError(errormsg)
         if method is POST and payload is None:
-                TypeError('POST method specified without payload')
+                raise TypeError('POST method specified without payload')
 
 
 class Pool(threading.Thread):
