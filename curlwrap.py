@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 
+from __future__ import with_statement
+
 # Copyright (c) 2009, Daniel Robert Farina
 # All rights reserved.
 #
@@ -146,7 +148,7 @@ class Pool(threading.Thread):
             # urlfetch object off their respective self.queues and set them
             # up to get to work.
             with self.cond:
-                while not self.queue and len(freelist) == self.total_handles:
+                while not self.finished and not self.queue and len(freelist) == self.total_handles:
                     self.cond.wait()
                 if self.finished:
                     break
@@ -242,6 +244,13 @@ class Pool(threading.Thread):
             del self.queue[:]
         self.m.close()
 
+
+    def __enter__(self):
+        self.start()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.finish()
+
 def test():
     # perform one hundred requests to localhost with concurrency 10
     p = Pool(500)
@@ -252,6 +261,7 @@ def test():
 
     for f in us:
         print f.readline() #print just one line)
+        f.close()
 
     p.finish()
 

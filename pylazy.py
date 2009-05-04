@@ -26,6 +26,8 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import with_statement
+
 def makelazy(*_possible_classes):
     functions = set()
     properties = set()

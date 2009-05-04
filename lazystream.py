@@ -30,19 +30,22 @@ import cStringIO
 import os
 import threading
 
+from __future__ import with_statement
 
 class LazyStream(object):
     __slots__ = ( 'consumers', 'producers', 'make_consumer', 'make_producer',
-                    'producers_closed', '__init__', '_csio', '_cond',)
+                    'producers_closed', '__init__', '_csio', '_cond', '_closing', 'consumers_closed')
 
     class LazyStreamConsumer(object):
-        __slots__ = ('__init__', 'read', '_cond', '_csio', '_producers_closed_func')
+        __slots__ = ('__init__', 'read', '_cond', '_csio', '_producers_closed_func', 'close',
+                    '_closed', '_closing_func', 'closed')
 
-        def __init__(self, csio, cond, producers_closed_func):
+        def __init__(self, csio, cond, producers_closed_func, closing_func):
             with cond:
                 self._cond = cond
                 self._csio = csio
                 self._producers_closed_func = producers_closed_func
+                self._closing_func = closing_func
 
         def read(self, leng=-1):
             with self._cond:
@@ -86,6 +89,18 @@ class LazyStream(object):
                 raise StopIteration
             return line
 
+
+        def close(self):
+            with self._cond:
+                self._closed = True
+                self._closing_func()
+
+        def _getclosed(self):
+            with self._cond:
+                return self._closed
+
+        closed = property(_getclosed)
+
         def __str__(self):
             with self._cond:
                 pos = self._csio.tell()
@@ -109,11 +124,13 @@ class LazyStream(object):
 
         def write(self, *s, **d):
             with self._cond:
-                pos = self._csio.tell()
-                self._csio.seek(0, os.SEEK_END)
-                self._csio.write(*s, **d)
-                self._csio.seek(pos)
-                self._cond.notify()
+                #if it's closed already, let's no-op
+                if not self._csio.closed:
+                    pos = self._csio.tell()
+                    self._csio.seek(0, os.SEEK_END)
+                    self._csio.write(*s, **d)
+                    self._csio.seek(pos)
+                    self._cond.notify()
 
 
         def close(self):
@@ -134,6 +151,19 @@ class LazyStream(object):
         self.consumers = []
         self.producers = []
 
+    def _closing(self):
+        with self._cond:
+            if self.consumers_closed():
+                self._csio.close()
+
+
+    def consumers_closed(self):
+        """
+        Are all the consumers closed?
+        """
+        with self._cond:
+            return all(c.closed for c in self.consumers)
+
     def producers_closed(self):
         """
         Are all the producers closed?
@@ -149,7 +179,7 @@ class LazyStream(object):
 
     def make_consumer(self):
         with self._cond:
-            cons = LazyStream.LazyStreamConsumer(self._csio, self._cond, self.producers_closed)
+            cons = LazyStream.LazyStreamConsumer(self._csio, self._cond, self.producers_closed, self._closing)
             self.consumers.append(cons)
             return cons
 

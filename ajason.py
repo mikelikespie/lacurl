@@ -5,6 +5,7 @@ except ImportError:
 
 import pylazy
 
+Lazy = pylazy.makelazy(dict, list, unicode, int, long, float, bool)
 def load(*s, **d):
-    return pylazy.makelazy(lambda: json.load(*s, **d), dict, list, unicode, int, long, float, True, False)
+    return Lazy(lambda: json.load(*s, **d))
 

@@ -31,6 +31,7 @@ import json
 import threading
 import time
 
+from __future__ import with_statement
 
 def run(producer):
     print "sleeping for 3 seconds"
