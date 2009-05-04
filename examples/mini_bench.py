@@ -7,7 +7,7 @@ from __future__ import with_statement
 
 import sys
 
-import lacurl
+import lacurl.pool
 import lacurl.ext.ajason
 
 import urllib2
@@ -32,6 +32,9 @@ class timer(object):
 
 
 def main():
+    if len(sys.argv) < 2:
+        print >>sys.stderr, "usage: mini_bench.py <screen_name>"
+        exit(1)
     user = sys.argv[1]
 
 
@@ -46,7 +49,7 @@ def main():
     print "getting %s urls" % len(to_get)
 
     with timer("using LAcURL asynchronously"):
-        p = lacurl.Pool(100)
+        p = lacurl.pool.Pool(100)
         with p:
             l = [getlist(p.urlopen, lacurl.ext.ajason.load, u) for u in to_get]
 
