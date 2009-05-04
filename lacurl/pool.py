@@ -1,7 +1,4 @@
 #! /usr/bin/env python
-
-from __future__ import with_statement
-
 # Copyright (c) 2009, Daniel Robert Farina
 # All rights reserved.
 #
@@ -29,12 +26,12 @@ from __future__ import with_statement
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+from __future__ import with_statement
 
-import pycurl
 import threading
+import pycurl
 import lazystream
-from cStringIO import StringIO
-from collections import deque
+
 
 debug = False
 class POST:

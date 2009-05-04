@@ -3,9 +3,10 @@ try:
 except ImportError:
     import json
 
-import pylazy
+import lazy
 
-Lazy = pylazy.makelazy(dict, list, unicode, int, long, float, bool)
+Lazy = lazy.lazy(dict, list, unicode, int, long, float, bool)
+
 def load(*s, **d):
     return Lazy(lambda: json.load(*s, **d))
 

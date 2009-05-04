@@ -27,7 +27,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 from __future__ import with_statement
 
-from lazystream import LazyStream
+from lacurl.lazystream import LazyStream
 import json
 import threading
 import time

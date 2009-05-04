@@ -5,17 +5,16 @@ This will make a lot of output, so please pipe it to a file
 """
 from __future__ import with_statement
 
-
-import curlwrap
-import pylazy
 import sys
+
+import lacurl
+from lacurl.ext.ajason import load
 
 
 user = sys.argv[1]
 
-from ajason import load
 
-p = curlwrap.Pool(50)
+p = lacurl.Pool(50)
 
 with p:
     f = p.urlopen('http://twitter.com/friends/ids/%s.json' % user)
